@@ -24,6 +24,9 @@ int main(int argc, char **argv)
 	unsigned short server_port = atoi(argv[1]);
 	char *web_root = argv[2];
 	char *host = argv[3];
+	if (!strcmp(host, "localhost")){
+		host = "127.0.0.1";
+	}
 	unsigned short mdb_port = atoi(argv[4]);
 	
 
@@ -43,7 +46,7 @@ int main(int argc, char **argv)
     servaddr2.sin_addr.s_addr = inet_addr(host);
     servaddr2.sin_port        = htons(mdb_port); // must be in network byte order
 
-    // Establish a TCP connection to the server
+    // Establish a TCP connection to the server 
 
     if (connect(mdb_sock, (struct sockaddr *) &servaddr2, sizeof(servaddr2)) < 0)
         die("connect failed");
@@ -86,8 +89,9 @@ int main(int argc, char **argv)
 
         clntlen = sizeof(clntaddr); // initialize the in-out parameter
 
-        if ((clntsock = accept(servsock,(struct sockaddr *) &clntaddr, &clntlen)) < 0)
+        if ((clntsock = accept(servsock,(struct sockaddr *) &clntaddr, &clntlen)) < 0){
             die("accept failed");
+		}
 		
 		// Get stuff
 
@@ -123,7 +127,7 @@ int main(int argc, char **argv)
 			
 		} else {
 			//printf("GET Err\n");
-			printf("%s \"GET %s\" 501 Not Implemented\n", inet_ntoa(clntaddr.sin_addr), requestURI);
+			printf("%s \"%s %s %s\" 501 Not Implemented\n", inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
 			sprintf(response, "HTTP/1.0 501 Not Implemented\r\n\r\n<html>\r\n<body>\r\n<h1>\r\n501 Not Implemented</h1>\r\n</body>\r\n</html>\r\n");
 			send(clntsock, response, strlen(response), 0);
 			fclose(request);
@@ -137,7 +141,7 @@ int main(int argc, char **argv)
 			
 		} else {
 			//printf("URI Err\n");
-			printf("%s \"GET %s\" 400 Bad Request\n", inet_ntoa(clntaddr.sin_addr), requestURI);
+			printf("%s \"%s %s %s\" 400 Bad Request\n", inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
 			sprintf(response, "HTTP/1.0 400 Bad Request\r\n\r\n<html>\r\n<body>\r\n<h1>\r\n400 Bad Request\r\n</h1>\r\n</body>\r\n</html>\r\n");
             send(clntsock, response, strlen(response), 0);
 			fclose(request);
@@ -151,7 +155,7 @@ int main(int argc, char **argv)
           	
         } else {
             //printf("HTTP Ver Err\n");
-			printf("%s \"GET %s\" 400 Bad Request\n", inet_ntoa(clntaddr.sin_addr), requestURI);
+			printf("%s \"%s %s %s\" 400 Bad Request\n", inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
             sprintf(response, "HTTP/1.0 400 Bad Request\r\n\r\n<html>\r\n<body>\r\n<h1>\r\n400 Bad Request\r\n</h1>\r\n</body>\r\n</html>\r\n");
             send(clntsock, response, strlen(response), 0);
 			fclose(request);
@@ -171,7 +175,7 @@ int main(int argc, char **argv)
 			send(clntsock, response, strlen(response), 0);
 			
 			// Print out the success message
-			printf("%s \"GET %s\" 200 OK\n", inet_ntoa(clntaddr.sin_addr), requestURI);
+			printf("%s \"%s %s %s\" 200 OK\n", inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
 
 			fclose(request);
 			close(clntsock);
@@ -179,22 +183,42 @@ int main(int argc, char **argv)
 		}
 		
 		// Get result
-		//printf("MDB: %s\n",strstr(requestURI, "/mdb-lookup?key="));
 		
 		char *temp = strstr(requestURI, "/mdb-lookup?key=");
 		if (temp != NULL){
-			//printf("Looking for key");
-			printf("%s\n", temp);
+			// Send the key to mdb server
 			char *key = requestURI + 16 * sizeof(char);
-			printf("KEY: %s\n", key);
-			//send(mdb_sock, key, strlen(key), 0);
-			//FILE *result = fdopen(mdb_sock, "rb");
-			//char c[1000];
-			//fgets(c, 1000, result);
-			//printf("%s\n", c);
-			sprintf(response, "HTTP/1.0 200 OK\r\n\r\n<html><body>\r\n<h1>mdb-lookup</h1>\r\n<p>\r\n<form method=GET action=/mdb-lookup>\r\nlookup: <input type=text name=key>\r\n<input type=submit>\r\n</form>\r\n<p>\r\n</body></html>\r\n");
+			printf("looking up [%s]: %s \"%s %s %s\" 200 OK\n", key, inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
+			send(mdb_sock, key, strlen(key), 0);
+			send(mdb_sock, "\n", 1, 0);
+
+			// Send the start
+			sprintf(response, "HTTP/1.0 200 OK\r\n\r\n<html><body>\r\n<h1>mdb-lookup</h1>\r\n<p>\r\n<form method=GET action=/mdb-lookup>\r\nlookup: <input type=text name=key>\r\n<input type=submit>\r\n</form>\r\n<p>\r\n<p><table border>\r\n");
 			send(clntsock, response, strlen(response), 0);
-			//send(clntsock, "<html><body><h1>mdb-lookup</h1><p><form method=GET action=/mdb-lookup>lookup: <input type=text name=key><input type=submit></form><p><p><table border>");
+			// Send the content
+			FILE *result = fdopen(mdb_sock, "rb");
+			char buffer[1000];
+			int i = 0;
+			fgets(buffer, 1000, result);
+			while (buffer[0] != '\n'){
+				//printf("i: %d", i);
+				char content[1000];
+				if ((i % 2) == 0){
+					sprintf(content, "<tr><td>%s\r\n", buffer);
+				} else {
+					sprintf(content, "<tr><td bgcolor=yellow>%s\r\n", buffer);
+				}
+				//printf("%s", content);
+				send(clntsock, content, strlen(content), 0);
+				fgets(buffer, 1000, result);
+				i++;
+			}
+			// Send the end 
+			char ending[27];
+			sprintf(ending, "</table>\r\n</body></html>\r\n");
+			send(clntsock, ending, strlen(ending),0);
+
+			// Cleanup
 			fclose(request);
 			close(clntsock);
             continue;	
@@ -216,13 +240,41 @@ int main(int argc, char **argv)
 			if (dir == 1 && reg == 0){ // If the path is a directory
 				printf("TEST LAST CHAR: [%c]\n", requestURI[strlen(requestURI)-1]);
 				if (requestURI[strlen(requestURI)-1] != '/'){ // If the path is directory but does not have '/' at the end
-        			printf("%s \"GET %s\" 501 Not Implemented\n", inet_ntoa(clntaddr.sin_addr), requestURI);
+        			printf("%s \"%s %s %s\" 501 Not Implemented\n", inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
             		sprintf(response, "HTTP/1.0 501 Not Implemented\r\n\r\n<html>\r\n<body>\r\n<h1>\r\n501 Not Implemented\r\n</h1>\r\n</body>\r\n</html>\r\n");
             		send(clntsock, response, strlen(response), 0);
             		close(clntsock);
 					continue;
 				} else { // If the path is directory and has '/' at the end
 					sprintf(filePath, "%s%sindex.html", web_root, requestURI); // Add index.html to the end
+
+					FILE * file;
+					file = fopen(filePath, "r");
+		
+					// Send the success message
+					sprintf(response, "HTTP/1.0 200 OK\r\n\r\n");
+					send(clntsock, response, strlen(response), 0);
+
+					// Print out the success message
+					printf("%s \"%s %s %s\" 200 OK\n", inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
+
+					// Send the file
+					char buffer[4096];
+					int i;
+    				while (1){
+        				i = fread(buffer, 1, 4096, file);
+						send(clntsock, buffer, i, 0);
+						//printf("sob: %d", sizeof(buffer));
+        				//fwrite(buffer, 1, i, fp);
+        				if (i < 4096) {
+							sprintf(buffer, "\r\n");
+							send(clntsock, buffer, strlen(buffer), 0);
+							break;
+						}
+					}
+				// Close the file
+				fclose(file);
+
 				}
 			} else if (dir == 0 && reg == 1){ // If the path is a file
 				FILE * file;
@@ -233,7 +285,7 @@ int main(int argc, char **argv)
 				send(clntsock, response, strlen(response), 0);
 
 				// Print out the success message
-				printf("%s \"GET %s\" 200 OK\n", inet_ntoa(clntaddr.sin_addr), requestURI);
+				printf("%s \"%s\" 200 OK\n", inet_ntoa(clntaddr.sin_addr), firstLine);
 
 				// Send the file
 				char buffer[4096];
@@ -252,15 +304,19 @@ int main(int argc, char **argv)
 				// Close the file
 				fclose(file);
 			} else{ // Neither file or dir, bad request
-				printf("%s \"GET %s\" 400 Bad Request\n", inet_ntoa(clntaddr.sin_addr), requestURI);
+				printf("%s \"%s %s %s\" 400 Bad Request\n", inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
             	sprintf(response, "HTTP/1.0 400 Bad Request\r\n\r\n<html>\r\n<body>\r\n<h1>\r\n400 Bad Request\r\n</h1>\r\n</body>\r\n</html>\r\n");
             	send(clntsock, response, strlen(response), 0);
+				//send(clntsock, "\n", 1, 0);
+				char result[100];
+				fread(result, 1, 100, 0);
+				printf("Result: %s\n", result);
 				fclose(request);
 				close(clntsock);
 				continue;
 			}
 		} else { // Path does not exist, 404
-			printf("%s \"GET %s\" 404 Not Found\n", inet_ntoa(clntaddr.sin_addr), requestURI);
+			printf("%s \"%s %s %s\" 404 Not Found\n", inet_ntoa(clntaddr.sin_addr), method, requestURI, httpVersion);
             sprintf(response, "HTTP/1.0 404 Not Found\r\n\r\n<html>\r\n<body>\r\n<h1>\r\n404 Not Found\r\n</h1>\r\n</body>\r\n</html>\r\n");
 			send(clntsock, response, strlen(response), 0);
 			fclose(request);
