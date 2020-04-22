@@ -12,6 +12,8 @@ implemented or how you tried to fix your non-working code.
 My website is created at "http://clac.cs.columbia.edu/~xl2948/cs3157/tng/"
 
 [part2]
-a. Works as required by the handout.
+You may use "make vtest" to run the program with valgrind.
+a. Works as required by the handout. Does not quit when the client request
+fails.
 b. Works as required by the handout. Supports "localhost" as a parameter.
 Use "/mdb-lookup" to start a search.
