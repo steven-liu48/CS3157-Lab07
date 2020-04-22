@@ -324,66 +324,7 @@ int main(int argc, char **argv)
 			continue;
 		}
 
-		/*
-		int dir = S_ISDIR(st.st_mode);
-		int reg = S_ISREG(st.st_mode);
-
-		uint32_t size = st.st_size;
 		
-		printf("TEST PATH: %s -- %d -- %d\n", filePath, dir, reg);
-
-
-		if (dir == 1){ // If the path is a directory
-			printf("TEST LAST CHAR: [%c]\n", requestURI[strlen(requestURI)-1]);
-			if (requestURI[strlen(requestURI)-1] != '/'){ // If the path is directory but does not have '/' at the end
-        		printf("%s \"GET %s\" 501 Not Implemented\n", inet_ntoa(clntaddr.sin_addr), requestURI);
-            	sprintf(response, "HTTP/1.0 501 Not Implemented\r\n\r\n<html>\r\n<body>\r\n<h1>\r\n501 Not Implemented\r\n</h1>\r\n</body>\r\n</html>\r\n");
-            	send(clntsock, response, strlen(response), 0);
-            	close(clntsock);
-				continue;
-			} else { // If the path is directory and has '/' at the end
-				sprintf(filePath, "%s%sindex.html", web_root, requestURI); // Add index.html to the end
-			}
-		}
-		
-		// Open the file and send the response
-
-		FILE * file;
-		file = fopen(filePath, "r");
-		
-		if (file){ // File exists
-			// Send the success message
-			sprintf(response, "HTTP/1.0 200 OK\r\n\r\n");
-			send(clntsock, response, strlen(response), 0);
-
-			// Print out the success message
-			printf("%s \"GET %s\" 200 OK\n", inet_ntoa(clntaddr.sin_addr), requestURI);
-
-			// Send the file
-			char buffer[4096];
-			int i;
-    		while (1){
-        		i = fread(buffer, 1, 4096, file);
-				send(clntsock, buffer, i, 0);
-				//printf("sob: %d", sizeof(buffer));
-        		//fwrite(buffer, 1, i, fp);
-        		if (i < 4096) {
-					sprintf(buffer, "\r\n");
-					send(clntsock, buffer, strlen(buffer), 0);
-					break;
-				}
-			}
-			// Close the file
-			fclose(file);
-		} else { // File does not exist
-			printf("%s \"GET %s\" 404 Not Found\n", inet_ntoa(clntaddr.sin_addr), requestURI);
-            sprintf(response, "HTTP/1.0 404 Not Found\r\n\r\n<html>\r\n<body>\r\n<h1>\r\n404 Not Found\r\n</h1>\r\n</body>\r\n</html>\r\n");
-			send(clntsock, response, strlen(response), 0);
-            close(clntsock);
-			continue;
-		}
-		
-		*/
 
 		//Clean up
 		fclose(request);
